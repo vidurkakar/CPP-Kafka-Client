@@ -4,6 +4,17 @@
 #include "/usr/include/boost/program_options.hpp"
 #include "cppkafka/consumer.h"
 #include "cppkafka/configuration.h"
+#include "flight_control_sample.cpp"
+#include "/home/nvidia/OSDK_NEW_GitHub_Clone/Onboard-SDK/sample/linux/common/dji_linux_environment.cpp"
+#include "/home/nvidia/OSDK_NEW_GitHub_Clone/Onboard-SDK/sample/linux/common/dji_linux_helpers.cpp"
+
+
+#include "flight_control_sample.hpp"
+
+using namespace DJI::OSDK;
+using namespace DJI::OSDK::Telemetry;
+
+
 
 using std::string;
 using std::exception;
@@ -79,8 +90,21 @@ int main(int argc, char* argv[]) {
 
     cout << "Consuming messages from topic " << topic_name << endl;
 
+	// Initialize OSDK variables
+	  int functionTimeout = 1;
+	 int argc1=2; 
+	  char* argv1[]= {"","UserConfig.txt"};
+	  cout << "Config File Path: " << argv1[1] << endl; 
+	  // Setup OSDK.
+	  LinuxSetup linuxEnvironment(argc1, argv1);
+	  Vehicle*   vehicle = linuxEnvironment.getVehicle();
+
     // Now read lines and write them into kafka
     while (running) {
+
+
+
+
         // Try to consume a message
         Message msg = consumer.poll();
         if (msg) {
@@ -151,7 +175,11 @@ int main(int argc, char* argv[]) {
 				
 				
 				if(droneCommand.compare(TAKEOFF)==0)
-				{cout << " Drone Takeoff Command" << endl; }
+				{
+					cout << " Drone Takeoff Command" << endl; 
+					vehicle->obtainCtrlAuthority(functionTimeout);
+      					monitoredTakeoff(vehicle);
+				}
 				else if(droneCommand.compare(MOVE)==0)
 				
 				{	if(wordsCommand.size()==6)
@@ -161,14 +189,20 @@ int main(int argc, char* argv[]) {
 					cout << "y: " << wordsCommand.at(3) << endl;
 					cout << "z: " << wordsCommand.at(4) << endl;
 					cout << "Yaw: " << wordsCommand.at(5) << endl;
+					vehicle->obtainCtrlAuthority(functionTimeout);
+ 
+					moveByPositionOffset(vehicle, strtof((wordsCommand.at(2)).c_str(),0), strtof((wordsCommand.at(3)).c_str(),0), strtof((wordsCommand.at(4)).c_str(),0), strtof((wordsCommand.at(5)).c_str(),0));
 					}
 					else
 					{cout<< "Incorrect Move Command" << endl;}
 				}
 
 				else if(droneCommand.compare(LAND)==0)
-				
-				{cout << "Drone Land Command" << endl; }
+				{
+					cout << "Drone Land Command" << endl;
+					vehicle->obtainCtrlAuthority(functionTimeout);
+      					monitoredLanding(vehicle);
+				}
 				else
 				{cout << "Unkown OSDK Command" << endl;
 				}
