@@ -74,8 +74,10 @@ int main(int argc, char* argv[]) {
 
         // Actually produce the message we've built
         producer.produce(builder);
+	cout << "Producing.produce"<< endl;
     }
     
     // Flush all produced messages
     producer.flush();
+    cout << "Producing.flush"<< endl;
 }

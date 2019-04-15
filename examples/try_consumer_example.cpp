@@ -8,6 +8,9 @@
 #include "/home/nvidia/OSDK_NEW_GitHub_Clone/Onboard-SDK/sample/linux/common/dji_linux_environment.cpp"
 #include "/home/nvidia/OSDK_NEW_GitHub_Clone/Onboard-SDK/sample/linux/common/dji_linux_helpers.cpp"
 
+#include "cppkafka/producer.h"
+#include "cppkafka/configuration.h"
+
 
 #include "flight_control_sample.hpp"
 
@@ -26,6 +29,12 @@ using cppkafka::Configuration;
 using cppkafka::Message;
 using cppkafka::TopicPartitionList;
 
+
+using cppkafka::Producer;
+using cppkafka::Configuration;
+using cppkafka::Topic;
+using cppkafka::MessageBuilder;
+
 namespace po = boost::program_options;
 
 bool running = true;
@@ -34,15 +43,18 @@ int main(int argc, char* argv[]) {
     cout << "Hello TRY CPP Example" << endl;
 	
     string brokers;
-    string topic_name;
+    string consumer_topic_name;
+    string producer_topic_name="edgeNodeResp1";
     string group_id;
+    int partition_value = 0;   //Added for producer.
+
 
     po::options_description options("Options");
     options.add_options()
         ("help,h",     "produce this help message")
         ("brokers,b",  po::value<string>(&brokers)->required(), 
                        "the kafka broker list")
-        ("topic,t",    po::value<string>(&topic_name)->required(),
+        ("topic,t",    po::value<string>(&consumer_topic_name)->required(),
                        "the topic in which to write to")
         ("group-id,g", po::value<string>(&group_id)->required(),
                        "the consumer group id")
@@ -64,8 +76,8 @@ int main(int argc, char* argv[]) {
     // Stop processing on SIGINT
     signal(SIGINT, [](int) { running = false; });
 
-    // Construct the configuration
-    Configuration config = {
+    // Construct the Consumer configuration
+    Configuration configConsumer = {
         { "metadata.broker.list", brokers },
         { "group.id", group_id },
         // Disable auto commit
@@ -73,7 +85,25 @@ int main(int argc, char* argv[]) {
     };
 
     // Create the consumer
-    Consumer consumer(config);
+    Consumer consumer(configConsumer);
+
+    // Construct the Producer configuration
+    Configuration configProducer = {
+        { "metadata.broker.list", brokers }
+    };
+
+
+    // Create a message builder for this topic
+    MessageBuilder builder(producer_topic_name);
+
+    // Get the partition we want to write to. If no partition is provided, this will be
+    // an unassigned one
+    if (partition_value != -1) {
+        builder.partition(partition_value);
+    }
+
+    // Create the producer
+    Producer producer(configProducer);
 
     // Print the assigned partitions on assignment
     consumer.set_assignment_callback([](const TopicPartitionList& partitions) {
@@ -86,9 +116,9 @@ int main(int argc, char* argv[]) {
     });
 
     // Subscribe to the topic
-    consumer.subscribe({ topic_name });
+    consumer.subscribe({ consumer_topic_name });
 
-    cout << "Consuming messages from topic " << topic_name << endl;
+    cout << "Consuming messages from topic " << consumer_topic_name << endl;
 
 	// Initialize OSDK variables
 	  int functionTimeout = 1;
@@ -96,8 +126,8 @@ int main(int argc, char* argv[]) {
 	  char* argv1[]= {"","UserConfig.txt"};
 	  cout << "Config File Path: " << argv1[1] << endl; 
 	  // Setup OSDK.
-	  LinuxSetup linuxEnvironment(argc1, argv1);
-	  Vehicle*   vehicle = linuxEnvironment.getVehicle();
+	  //LinuxSetup linuxEnvironment(argc1, argv1);
+	 // Vehicle*   vehicle = linuxEnvironment.getVehicle();
 
     // Now read lines and write them into kafka
     while (running) {
@@ -177,8 +207,8 @@ int main(int argc, char* argv[]) {
 				if(droneCommand.compare(TAKEOFF)==0)
 				{
 					cout << " Drone Takeoff Command" << endl; 
-					vehicle->obtainCtrlAuthority(functionTimeout);
-      					monitoredTakeoff(vehicle);
+					//vehicle->obtainCtrlAuthority(functionTimeout);
+      					//monitoredTakeoff(vehicle);
 				}
 				else if(droneCommand.compare(MOVE)==0)
 				
@@ -189,9 +219,9 @@ int main(int argc, char* argv[]) {
 					cout << "y: " << wordsCommand.at(3) << endl;
 					cout << "z: " << wordsCommand.at(4) << endl;
 					cout << "Yaw: " << wordsCommand.at(5) << endl;
-					vehicle->obtainCtrlAuthority(functionTimeout);
+					//vehicle->obtainCtrlAuthority(functionTimeout);
  
-					moveByPositionOffset(vehicle, strtof((wordsCommand.at(2)).c_str(),0), strtof((wordsCommand.at(3)).c_str(),0), strtof((wordsCommand.at(4)).c_str(),0), strtof((wordsCommand.at(5)).c_str(),0));
+					//moveByPositionOffset(vehicle, strtof((wordsCommand.at(2)).c_str(),0), strtof((wordsCommand.at(3)).c_str(),0), strtof((wordsCommand.at(4)).c_str(),0), strtof((wordsCommand.at(5)).c_str(),0));
 					}
 					else
 					{cout<< "Incorrect Move Command" << endl;}
@@ -200,11 +230,22 @@ int main(int argc, char* argv[]) {
 				else if(droneCommand.compare(LAND)==0)
 				{
 					cout << "Drone Land Command" << endl;
-					vehicle->obtainCtrlAuthority(functionTimeout);
-      					monitoredLanding(vehicle);
+					//vehicle->obtainCtrlAuthority(functionTimeout);
+      					//monitoredLanding(vehicle);
 				}
 				else
 				{cout << "Unkown OSDK Command" << endl;
+
+
+					// Set the payload on this builder
+				builder.payload("deviceNodeReq1#EdgeNode1#HelloFromDrone#edgeNodeResp1#2");
+
+					// Actually produce the message we've built
+					producer.produce(builder);
+
+					// Flush all produced messages
+					//producer.flush();
+					
 				}
 			}
 
@@ -213,6 +254,7 @@ int main(int argc, char* argv[]) {
 
                 // Now commit the message
                 consumer.commit(msg);
+
             	}
         }
     }
