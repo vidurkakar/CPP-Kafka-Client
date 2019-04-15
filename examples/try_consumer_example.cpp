@@ -1,5 +1,6 @@
 #include <stdexcept>
 #include <iostream>
+#include <string>
 #include <csignal>
 #include "/usr/include/boost/program_options.hpp"
 #include "cppkafka/consumer.h"
@@ -13,6 +14,7 @@
 
 
 #include "flight_control_sample.hpp"
+#include "producerCall2.cpp"
 
 using namespace DJI::OSDK;
 using namespace DJI::OSDK::Telemetry;
@@ -39,6 +41,9 @@ namespace po = boost::program_options;
 
 bool running = true;
 
+//void producerCall(string brokers, string topic_name, int partition_value,string messagePayload);
+void producerCallTwo( Producer producer,string topic_name, int partition_value,string messagePayload);
+
 int main(int argc, char* argv[]) {
     cout << "Hello TRY CPP Example" << endl;
 	
@@ -47,6 +52,8 @@ int main(int argc, char* argv[]) {
     string producer_topic_name="edgeNodeResp1";
     string group_id;
     int partition_value = 0;   //Added for producer.
+    int responseMsgCount=0;
+    string producerPayload;
 
 
     po::options_description options("Options");
@@ -94,13 +101,13 @@ int main(int argc, char* argv[]) {
 
 
     // Create a message builder for this topic
-    MessageBuilder builder(producer_topic_name);
+    //MessageBuilder builder(producer_topic_name);
 
     // Get the partition we want to write to. If no partition is provided, this will be
     // an unassigned one
-    if (partition_value != -1) {
-        builder.partition(partition_value);
-    }
+   // if (partition_value != -1) {
+   //     builder.partition(partition_value);
+  //  }
 
     // Create the producer
     Producer producer(configProducer);
@@ -201,7 +208,7 @@ int main(int argc, char* argv[]) {
 				
 				string droneCommand = wordsCommand.at(1);
 				string TAKEOFF="takeoff", LAND="land", MOVE="move";
-				//cout << "Drone Command String: " << droneCommand << endl;
+				cout << "Drone Command String: " << droneCommand << endl;
 				
 				
 				if(droneCommand.compare(TAKEOFF)==0)
@@ -209,6 +216,17 @@ int main(int argc, char* argv[]) {
 					cout << " Drone Takeoff Command" << endl; 
 					//vehicle->obtainCtrlAuthority(functionTimeout);
       					//monitoredTakeoff(vehicle);
+	
+					//SEND ACK
+					MessageBuilder builder(words.at(3));     // Create a message builder for this topic
+					builder.partition(partition_value);   	  // Get the partition we want to write to.
+					
+					producerPayload=words.at(3)+"#"+"TAKEOFF Command ACK from "+consumer_topic_name+"#"+consumer_topic_name+"#"+std::to_string(responseMsgCount);// Set the payload on this builder
+					builder.payload(producerPayload);
+					responseMsgCount++;
+
+					// Actually produce the message we've built
+					producer.produce(builder);
 				}
 				else if(droneCommand.compare(MOVE)==0)
 				
@@ -222,6 +240,17 @@ int main(int argc, char* argv[]) {
 					//vehicle->obtainCtrlAuthority(functionTimeout);
  
 					//moveByPositionOffset(vehicle, strtof((wordsCommand.at(2)).c_str(),0), strtof((wordsCommand.at(3)).c_str(),0), strtof((wordsCommand.at(4)).c_str(),0), strtof((wordsCommand.at(5)).c_str(),0));
+
+					//SEND ACK
+					MessageBuilder builder(words.at(3));     // Create a message builder for this topic
+					builder.partition(partition_value);   	  // Get the partition we want to write to.
+					
+					producerPayload=words.at(3)+"#"+"MOVE Command ACK from "+consumer_topic_name+"#"+consumer_topic_name+"#"+std::to_string(responseMsgCount);// Set the payload on this builder
+					builder.payload(producerPayload);
+					responseMsgCount++;
+
+					// Actually produce the message we've built
+					producer.produce(builder);
 					}
 					else
 					{cout<< "Incorrect Move Command" << endl;}
@@ -232,20 +261,30 @@ int main(int argc, char* argv[]) {
 					cout << "Drone Land Command" << endl;
 					//vehicle->obtainCtrlAuthority(functionTimeout);
       					//monitoredLanding(vehicle);
+
+					//SEND ACK
+					MessageBuilder builder(words.at(3));     // Create a message builder for this topic
+					builder.partition(partition_value);   	  // Get the partition we want to write to.
+					
+					producerPayload=words.at(3)+"#"+"LAND Command ACK from "+consumer_topic_name+"#"+consumer_topic_name+"#"+std::to_string(responseMsgCount);// Set the payload on this builder
+					builder.payload(producerPayload);
+					responseMsgCount++;
+
+					// Actually produce the message we've built
+					producer.produce(builder);
 				}
 				else
 				{cout << "Unkown OSDK Command" << endl;
 
-
-					// Set the payload on this builder
-				builder.payload("deviceNodeReq1#EdgeNode1#HelloFromDrone#edgeNodeResp1#2");
+					MessageBuilder builder(words.at(3));     // Create a message builder for this topic
+					builder.partition(partition_value);   	  // Get the partition we want to write to.
+					
+					producerPayload=words.at(3)+"#"+"ACK from "+consumer_topic_name+"#"+consumer_topic_name+"#"+std::to_string(responseMsgCount);// Set the payload on this builder
+					builder.payload(producerPayload);
+					responseMsgCount++;
 
 					// Actually produce the message we've built
-					producer.produce(builder);
-
-					// Flush all produced messages
-					//producer.flush();
-					
+					producer.produce(builder);	
 				}
 			}
 
