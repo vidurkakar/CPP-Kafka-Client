@@ -1,6 +1,7 @@
 #include <stdexcept>
 #include <iostream>
 #include <string>
+#include <cmath>
 #include <csignal>
 #include "/usr/include/boost/program_options.hpp"
 #include "cppkafka/consumer.h"
@@ -8,6 +9,7 @@
 #include "flight_control_sample.cpp"
 #include "/home/nvidia/OSDK_NEW_GitHub_Clone/Onboard-SDK/sample/linux/common/dji_linux_environment.cpp"
 #include "/home/nvidia/OSDK_NEW_GitHub_Clone/Onboard-SDK/sample/linux/common/dji_linux_helpers.cpp"
+#include "dji_telemetry.hpp"
 
 #include "cppkafka/producer.h"
 #include "cppkafka/configuration.h"
@@ -19,7 +21,12 @@
 using namespace DJI::OSDK;
 using namespace DJI::OSDK::Telemetry;
 
-
+Telemetry::Status         status;
+Telemetry::GlobalPosition globalPosition;
+Telemetry::GPSInfo        gpsInfo;
+Telemetry::RC             rc;
+Telemetry::Vector3f       velocity;
+Telemetry::Quaternion     quaternion;
 
 using std::string;
 using std::exception;
@@ -46,7 +53,7 @@ void producerCallTwo( Producer producer,string topic_name, int partition_value,s
 
 int main(int argc, char* argv[]) {
     cout << "Hello TRY CPP Example" << endl;
-	
+
     string brokers;
     string consumer_topic_name;
     string producer_topic_name="edgeNodeResp1";
@@ -59,7 +66,7 @@ int main(int argc, char* argv[]) {
     po::options_description options("Options");
     options.add_options()
         ("help,h",     "produce this help message")
-        ("brokers,b",  po::value<string>(&brokers)->required(), 
+        ("brokers,b",  po::value<string>(&brokers)->required(),
                        "the kafka broker list")
         ("topic,t",    po::value<string>(&consumer_topic_name)->required(),
                        "the topic in which to write to")
@@ -129,12 +136,12 @@ int main(int argc, char* argv[]) {
 
 	// Initialize OSDK variables
 	  int functionTimeout = 1;
-	 int argc1=2; 
+	 int argc1=2;
 	  char* argv1[]= {"","UserConfig.txt"};
-	  cout << "Config File Path: " << argv1[1] << endl; 
+	  cout << "Config File Path: " << argv1[1] << endl;
 	  // Setup OSDK.
-	  //LinuxSetup linuxEnvironment(argc1, argv1);
-	 // Vehicle*   vehicle = linuxEnvironment.getVehicle();
+	  LinuxSetup linuxEnvironment(argc1, argv1);
+	  Vehicle*   vehicle = linuxEnvironment.getVehicle();
 
     // Now read lines and write them into kafka
     while (running) {
@@ -160,11 +167,11 @@ int main(int argc, char* argv[]) {
 		        // Print the payload
 		        cout << msg.get_payload() << endl;
 
-			//------------Payload Processing----------	
+			//------------Payload Processing----------
 
 			//Split Main Payload
 			string s, tmp;
-			s=msg.get_payload(); 
+			s=msg.get_payload();
 			std::stringstream ss(s);
 			std::vector<std::string> words;
 
@@ -179,13 +186,13 @@ int main(int argc, char* argv[]) {
 			//cout << "Payload Start: " << words.at(2).substr(0,4) << endl;
 			}
 
-			
+
 			// Test if Payload OSDK Command
 			if (words.at(2).substr(0,4).compare("OSDK")==0)
 			{
 				cout << "OSDK command" << endl;
 				string sCommand, tmpCommand;
-				sCommand=words.at(2); 
+				sCommand=words.at(2);
 				std::stringstream ssCommand(sCommand);
 				std::vector<std::string> wordsCommand;
 
@@ -193,7 +200,7 @@ int main(int argc, char* argv[]) {
 		   		 wordsCommand.push_back(tmpCommand);
 				}
 
-				//Print Command Payload 
+				//Print Command Payload
 				/*
 				for(int i=1;i<wordsCommand.size();i++)
 				{
@@ -203,24 +210,24 @@ int main(int argc, char* argv[]) {
 				}
 				*/
 
-				
+
 				//Decide which command to call
-				
+
 				string droneCommand = wordsCommand.at(1);
-				string TAKEOFF="takeoff", LAND="land", MOVE="move";
+				string TAKEOFF="takeoff", LAND="land", MOVE="move",DRONESTATUS="status";
 				cout << "Drone Command String: " << droneCommand << endl;
-				
-				
+
+
 				if(droneCommand.compare(TAKEOFF)==0)
 				{
-					cout << " Drone Takeoff Command" << endl; 
-					//vehicle->obtainCtrlAuthority(functionTimeout);
-      					//monitoredTakeoff(vehicle);
-	
+					cout << " Drone Takeoff Command" << endl;
+					vehicle->obtainCtrlAuthority(functionTimeout);
+      				monitoredTakeoff(vehicle);
+
 					//SEND ACK
 					MessageBuilder builder(words.at(3));     // Create a message builder for this topic
 					builder.partition(partition_value);   	  // Get the partition we want to write to.
-					
+
 					producerPayload=words.at(3)+"#"+"TAKEOFF Command ACK from "+consumer_topic_name+"#"+consumer_topic_name+"#"+std::to_string(responseMsgCount);// Set the payload on this builder
 					builder.payload(producerPayload);
 					responseMsgCount++;
@@ -229,7 +236,7 @@ int main(int argc, char* argv[]) {
 					producer.produce(builder);
 				}
 				else if(droneCommand.compare(MOVE)==0)
-				
+
 				{	if(wordsCommand.size()==6)
 					{
 					cout << "Drone Move Command " << endl;
@@ -237,14 +244,14 @@ int main(int argc, char* argv[]) {
 					cout << "y: " << wordsCommand.at(3) << endl;
 					cout << "z: " << wordsCommand.at(4) << endl;
 					cout << "Yaw: " << wordsCommand.at(5) << endl;
-					//vehicle->obtainCtrlAuthority(functionTimeout);
- 
-					//moveByPositionOffset(vehicle, strtof((wordsCommand.at(2)).c_str(),0), strtof((wordsCommand.at(3)).c_str(),0), strtof((wordsCommand.at(4)).c_str(),0), strtof((wordsCommand.at(5)).c_str(),0));
+					vehicle->obtainCtrlAuthority(functionTimeout);
+
+					moveByPositionOffset(vehicle, strtof((wordsCommand.at(2)).c_str(),0), strtof((wordsCommand.at(3)).c_str(),0), strtof((wordsCommand.at(4)).c_str(),0), strtof((wordsCommand.at(5)).c_str(),0));
 
 					//SEND ACK
 					MessageBuilder builder(words.at(3));     // Create a message builder for this topic
 					builder.partition(partition_value);   	  // Get the partition we want to write to.
-					
+
 					producerPayload=words.at(3)+"#"+"MOVE Command ACK from "+consumer_topic_name+"#"+consumer_topic_name+"#"+std::to_string(responseMsgCount);// Set the payload on this builder
 					builder.payload(producerPayload);
 					responseMsgCount++;
@@ -259,14 +266,58 @@ int main(int argc, char* argv[]) {
 				else if(droneCommand.compare(LAND)==0)
 				{
 					cout << "Drone Land Command" << endl;
-					//vehicle->obtainCtrlAuthority(functionTimeout);
-      					//monitoredLanding(vehicle);
+					vehicle->obtainCtrlAuthority(functionTimeout);
+                    monitoredLanding(vehicle);
 
 					//SEND ACK
 					MessageBuilder builder(words.at(3));     // Create a message builder for this topic
 					builder.partition(partition_value);   	  // Get the partition we want to write to.
-					
+
 					producerPayload=words.at(3)+"#"+"LAND Command ACK from "+consumer_topic_name+"#"+consumer_topic_name+"#"+std::to_string(responseMsgCount);// Set the payload on this builder
+					builder.payload(producerPayload);
+					responseMsgCount++;
+
+					// Actually produce the message we've built
+					producer.produce(builder);
+				}
+				else if(droneCommand.compare(DRONESTATUS)==0)
+				{
+					cout << "Drone Status Command" << endl;
+
+					//Get All the flight stats
+					status         = vehicle->broadcast->getStatus();
+                    globalPosition = vehicle->broadcast->getGlobalPosition();
+                    rc             = vehicle->broadcast->getRC();
+                    velocity       = vehicle->broadcast->getVelocity();
+                    quaternion     = vehicle->broadcast->getQuaternion();
+
+                    globalPosition.latitude=globalPosition.latitude*(180/M_PI);
+                    globalPosition.longitude=globalPosition.longitude*(180/M_PI);
+
+                    std::cout << "-------\n";
+                    std::cout << "Flight Status                         = "
+                              << (unsigned)status.flight << "\n";
+                    std::cout << "Position   Radian     (LLA)           = "
+                              << globalPosition.latitude << ", " << globalPosition.longitude
+                              << ", " << globalPosition.altitude << "\n";
+                    std::cout << "Position   Degree     (LLA)           = "
+                              << gpsInfo.latitude << ", " << gpsInfo.longitude
+                              << ", " << gpsInfo.HFSL << "\n";
+                    std::cout << "RC Commands           (r/p/y/thr)     = " << rc.roll << ", "
+                              << rc.pitch << ", " << rc.yaw << ", " << rc.throttle << "\n";
+                    std::cout << "Velocity              (vx,vy,vz)      = " << velocity.x
+                              << ", " << velocity.y << ", " << velocity.z << "\n";
+                    std::cout << "Attitude Quaternion   (w,x,y,z)       = " << quaternion.q0
+                              << ", " << quaternion.q1 << ", " << quaternion.q2 << ", "
+                              << quaternion.q3 << "\n";
+                    std::cout << "-------\n\n";
+
+
+					//SEND ACK
+					MessageBuilder builder(words.at(3));     // Create a message builder for this topic
+					builder.partition(partition_value);   	  // Get the partition we want to write to.
+
+					producerPayload=words.at(3)+"#"+"Status Command ACK from "+consumer_topic_name+"#"+consumer_topic_name+"#"+std::to_string(responseMsgCount);// Set the payload on this builder
 					builder.payload(producerPayload);
 					responseMsgCount++;
 
@@ -278,18 +329,18 @@ int main(int argc, char* argv[]) {
 
 					MessageBuilder builder(words.at(3));     // Create a message builder for this topic
 					builder.partition(partition_value);   	  // Get the partition we want to write to.
-					
+
 					producerPayload=words.at(3)+"#"+"ACK from "+consumer_topic_name+"#"+consumer_topic_name+"#"+std::to_string(responseMsgCount);// Set the payload on this builder
 					builder.payload(producerPayload);
 					responseMsgCount++;
 
 					// Actually produce the message we've built
-					producer.produce(builder);	
+					producer.produce(builder);
 				}
 			}
 
 		cout << "====================================================" << endl;
-		
+
 
                 // Now commit the message
                 consumer.commit(msg);
