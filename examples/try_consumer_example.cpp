@@ -7,8 +7,8 @@
 #include "cppkafka/consumer.h"
 #include "cppkafka/configuration.h"
 #include "flight_control_sample.cpp"
-#include "/home/nvidia/OSDK_NEW_GitHub_Clone/Onboard-SDK/sample/linux/common/dji_linux_environment.cpp"
-#include "/home/nvidia/OSDK_NEW_GitHub_Clone/Onboard-SDK/sample/linux/common/dji_linux_helpers.cpp"
+#include "dji_linux_environment.cpp"
+#include "dji_linux_helpers.cpp"
 #include "dji_telemetry.hpp"
 
 #include "cppkafka/producer.h"
@@ -50,7 +50,7 @@ namespace po = boost::program_options;
 bool running = true;
 
 int main(int argc, char* argv[]) {
-    cout << "Hello TRY CPP Example" << endl;
+    cout << "===========Kafka DJI OSDK Client===========" << endl;
 
     string brokers;
     string consumer_topic_name;
