@@ -1,3 +1,11 @@
+/*
+* Heterogenous Multi Robot Communication Using Kafka
+* Author - Vidur Kakar
+* Email - vidurk@vt.edu
+* CAS Lab, Virginia Tech
+*/
+
+//Include Dependencies
 #include <stdexcept>
 #include <iostream>
 #include <string>
@@ -18,6 +26,7 @@
 #include "flight_control_sample.hpp"
 #include "producerCall2.cpp"
 
+//Specify NameSpaces
 using namespace DJI::OSDK;
 using namespace DJI::OSDK::Telemetry;
 
@@ -60,7 +69,7 @@ int main(int argc, char* argv[]) {
     int responseMsgCount=0;
     string producerPayload;
 
-
+    //Get input for brokers, topic and group-id frmo command line
     po::options_description options("Options");
     options.add_options()
         ("help,h",     "produce this help message")
@@ -131,10 +140,9 @@ int main(int argc, char* argv[]) {
 	LinuxSetup linuxEnvironment(argc1, argv1);
 	Vehicle*   vehicle = linuxEnvironment.getVehicle();
 
-    // Now read lines and write them into kafka
+    // Now read lines and write them into kafka 
+    // ===============Main Loop================
     while (running) {
-
-
 
 
         // Try to consume a message
@@ -202,10 +210,10 @@ int main(int argc, char* argv[]) {
 				//Decide which command to call
 
 				string droneCommand = wordsCommand.at(1);
-				string TAKEOFF="takeoff", LAND="land", MOVE="move",DRONESTATUS="status";
+				string TAKEOFF="takeoff", LAND="land", MOVE="move",DRONESTATUS="status",VELOCITY="velocity";
 				cout << "Drone Command String: " << droneCommand << endl;
 
-
+				//TAKEOFF
 				if(droneCommand.compare(TAKEOFF)==0)
 				{
 					cout << " Drone Takeoff Command" << endl;
@@ -223,35 +231,38 @@ int main(int argc, char* argv[]) {
 					// Actually produce the message we've built
 					producer.produce(builder);
 				}
+
+				//MOVE by offset
 				else if(droneCommand.compare(MOVE)==0)
 
 				{	if(wordsCommand.size()==6)
 					{
-                        cout << "Drone Move Command " << endl;
-                        cout << "x: " << wordsCommand.at(2) << endl;
-                        cout << "y: " << wordsCommand.at(3) << endl;
-                        cout << "z: " << wordsCommand.at(4) << endl;
-                        cout << "Yaw: " << wordsCommand.at(5) << endl;
-                        vehicle->obtainCtrlAuthority(functionTimeout);
+						cout << "Drone Move Command " << endl;
+						cout << "x: " << wordsCommand.at(2) << endl;
+						cout << "y: " << wordsCommand.at(3) << endl;
+						cout << "z: " << wordsCommand.at(4) << endl;
+						cout << "Yaw: " << wordsCommand.at(5) << endl;
+						vehicle->obtainCtrlAuthority(functionTimeout);
 
-                        //Call Drone Move Command
-                        moveByPositionOffset(vehicle, strtof((wordsCommand.at(2)).c_str(),0), strtof((wordsCommand.at(3)).c_str(),0), strtof((wordsCommand.at(4)).c_str(),0), strtof((wordsCommand.at(5)).c_str(),0));
+						//Call Drone Move Command
+						moveByPositionOffset(vehicle, strtof((wordsCommand.at(2)).c_str(),0), strtof((wordsCommand.at(3)).c_str(),0), strtof((wordsCommand.at(4)).c_str(),0), strtof((wordsCommand.at(5)).c_str(),0));
 
-                        //SEND ACK
-                        MessageBuilder builder(words.at(3));     // Create a message builder for this topic
-                        builder.partition(partition_value);   	  // Get the partition we want to write to.
+						//SEND ACK
+						MessageBuilder builder(words.at(3));     // Create a message builder for this topic
+						builder.partition(partition_value);   	  // Get the partition we want to write to.
 
-                        producerPayload=words.at(3)+"#"+"MOVE Command ACK from "+consumer_topic_name+"#"+consumer_topic_name+"#"+std::to_string(responseMsgCount);// Set the payload on this builder
-                        builder.payload(producerPayload);
-                        responseMsgCount++;
+						producerPayload=words.at(3)+"#"+"MOVE Command ACK from "+consumer_topic_name+"#"+consumer_topic_name+"#"+std::to_string(responseMsgCount);// Set the payload on this builder
+						builder.payload(producerPayload);
+						responseMsgCount++;
 
-                        // Actually produce ACK in topic
-                        producer.produce(builder);
+						// Actually produce ACK in topic
+						producer.produce(builder);
 					}
 					else
 					{cout<< "Incorrect Move Command" << endl;}
 				}
-
+				
+				//LAND
 				else if(droneCommand.compare(LAND)==0)
 				{
 					cout << "Drone Land Command" << endl;
@@ -269,196 +280,228 @@ int main(int argc, char* argv[]) {
 					// Actually produce ACK in topic
 					producer.produce(builder);
 				}
+				
+				//Set Drone VELOCITY
+				else if(droneCommand.compare(VELOCITY)==0)
+				{
+					if(wordsCommand.size()==6)
+					{
+						cout << "Drone Velocity Command " << endl;
+						cout << "x: " << wordsCommand.at(2) << endl;
+						cout << "y: " << wordsCommand.at(3) << endl;
+						cout << "z: " << wordsCommand.at(4) << endl;
+						cout << "Yaw: " << wordsCommand.at(5) << endl;
+						vehicle->obtainCtrlAuthority(functionTimeout);
+
+						//Call Drone Velocity Command
+			   		 	vehicle->control->velocityAndYawRateCtrl(strtof((wordsCommand.at(2)).c_str(),0), strtof((wordsCommand.at(3)).c_str(),0), strtof((wordsCommand.at(4)).c_str(),0), strtof((wordsCommand.at(5)).c_str(),0));
+
+						//vehicle->control->velocityAndYawRateCtrl(10,0,0,0);
+						//SEND ACK
+						MessageBuilder builder(words.at(3));     // Create a message builder for this topic
+						builder.partition(partition_value);   	  // Get the partition we want to write to.
+
+						producerPayload=words.at(3)+"#"+"Velocity Command ACK from "+consumer_topic_name+"#"+consumer_topic_name+"#"+std::to_string(responseMsgCount);// Set the payload on this builder
+						builder.payload(producerPayload);
+						responseMsgCount++;
+
+						// Actually produce ACK in topic
+						producer.produce(builder);
+					}
+					else
+					{cout<< "Incorrect Velocity Command" << endl;}
+				}
+
 				else if(droneCommand.compare(DRONESTATUS)==0)
 				{   //Check status in 2 position
 
-                    if(wordsCommand.size()==3)
-                    {
-                        //GPS Position
-                        if(wordsCommand.at(2).compare("position")==0)
-                        {
-                            globalPosition = vehicle->broadcast->getGlobalPosition();
-                            globalPosition.latitude=globalPosition.latitude*(180/M_PI);
-                            globalPosition.longitude=globalPosition.longitude*(180/M_PI);
+				    if(wordsCommand.size()==3)
+				    {
+				        //GPS Position
+				        if(wordsCommand.at(2).compare("position")==0)
+				        {
+				            globalPosition = vehicle->broadcast->getGlobalPosition();
+				            globalPosition.latitude=globalPosition.latitude*(180/M_PI);
+				            globalPosition.longitude=globalPosition.longitude*(180/M_PI);
 
-                            string strLatitude=std::to_string(globalPosition.latitude);
-                            string strLongitude=std::to_string(globalPosition.longitude);
-                            string strAltitude=std::to_string(globalPosition.altitude);
+				            string strLatitude=std::to_string(globalPosition.latitude);
+				            string strLongitude=std::to_string(globalPosition.longitude);
+				            string strAltitude=std::to_string(globalPosition.altitude);
 
-                             cout << "Position in degree      (LLA)           = "
-                                      << strLatitude << ", " << strLongitude
-                                      << ", " << strAltitude << "\n";
+				             cout << "Position in degree      (LLA)           = "
+				                      << strLatitude << ", " << strLongitude
+				                      << ", " << strAltitude << "\n";
 
-                            //SEND ACK
-                            MessageBuilder builder(words.at(3));     // Create a message builder for this topic
-                            builder.partition(partition_value);   	  // Get the partition we want to write to.
+				            //SEND ACK
+				            MessageBuilder builder(words.at(3));     // Create a message builder for this topic
+				            builder.partition(partition_value);   	  // Get the partition we want to write to.
 
-                            producerPayload=words.at(3)+"#"+"Position= [Latitiude: "+ strLatitude +", Longitude: "+ strLongitude + ", Altitude: "+ strAltitude+"]"+"#"+consumer_topic_name+"#"+std::to_string(responseMsgCount);// Set the payload on this builder
-                            builder.payload(producerPayload);
-                            responseMsgCount++;
+				            producerPayload=words.at(3)+"#"+"Position= [Latitiude: "+ strLatitude +", Longitude: "+ strLongitude + ", Altitude: "+ strAltitude+"]"+"#"+consumer_topic_name+"#"+std::to_string(responseMsgCount);// Set the payload on this builder
+				            builder.payload(producerPayload);
+				            responseMsgCount++;
 
-                            // Actually produce ACK in topic
-                            producer.produce(builder);
-                        }
+				            // Actually produce ACK in topic
+				            producer.produce(builder);
+				        }
 
-                        //Drone Velocity
-                        else if(wordsCommand.at(2).compare("velocity")==0)
-                        {
-                            velocity = vehicle->broadcast->getVelocity();
+				        //Drone Velocity
+				        else if(wordsCommand.at(2).compare("velocity")==0)
+				        {
+				            velocity = vehicle->broadcast->getVelocity();
 
-                            string strVelX=std::to_string(velocity.x);
-                            string strVelY=std::to_string(velocity.y);
-                            string strVelZ=std::to_string(velocity.z);
+				            string strVelX=std::to_string(velocity.x);
+				            string strVelY=std::to_string(velocity.y);
+				            string strVelZ=std::to_string(velocity.z);
 
-                            cout << "Velocity              (vx,vy,vz)      = " << strVelX
-                                  << ", " << strVelY << ", " << strVelZ << "\n";
+				            cout << "Velocity              (vx,vy,vz)      = " << strVelX
+				                  << ", " << strVelY << ", " << strVelZ << "\n";
 
-                            //SEND ACK
-                            MessageBuilder builder(words.at(3));     // Create a message builder for this topic
-                            builder.partition(partition_value);   	  // Get the partition we want to write to.
+				            //SEND ACK
+				            MessageBuilder builder(words.at(3));     // Create a message builder for this topic
+				            builder.partition(partition_value);   	  // Get the partition we want to write to.
 
-                            producerPayload=words.at(3)+"#"+"Velocity= [Vx: "+ strVelX +", Vy: "+ strVelY + ", Vz: "+ strVelZ+"]"+"#"+consumer_topic_name+"#"+std::to_string(responseMsgCount);// Set the payload on this builder
-                            builder.payload(producerPayload);
-                            responseMsgCount++;
+				            producerPayload=words.at(3)+"#"+"Velocity= [Vx: "+ strVelX +", Vy: "+ strVelY + ", Vz: "+ strVelZ+"]"+"#"+consumer_topic_name+"#"+std::to_string(responseMsgCount);// Set the payload on this builder
+				            builder.payload(producerPayload);
+				            responseMsgCount++;
 
-                            // Actually produce ACK in topic
-                            producer.produce(builder);
-                        }
+				            // Actually produce ACK in topic
+				            producer.produce(builder);
+				        }
 
-                        //RC Values
-                        else if(wordsCommand.at(2).compare("getrc")==0)
-                        {
-                            rc = vehicle->broadcast->getRC();
+				        //RC Values
+				        else if(wordsCommand.at(2).compare("getrc")==0)
+				        {
+				            rc = vehicle->broadcast->getRC();
 
-                            string strRcRoll=std::to_string(rc.roll);
-                            string strRcPitch=std::to_string(rc.pitch);
-                            string strRcYaw=std::to_string(rc.yaw);
-                            string strRcThrottle=std::to_string(rc.throttle);
+				            string strRcRoll=std::to_string(rc.roll);
+				            string strRcPitch=std::to_string(rc.pitch);
+				            string strRcYaw=std::to_string(rc.yaw);
+				            string strRcThrottle=std::to_string(rc.throttle);
 
-                             cout << "RC Commands           (r/p/y/thr)     = " << strRcRoll << ", "
-                                  << strRcPitch << ", " << strRcYaw << ", " << strRcThrottle << "\n";
+				             cout << "RC Commands           (r/p/y/thr)     = " << strRcRoll << ", "
+				                  << strRcPitch << ", " << strRcYaw << ", " << strRcThrottle << "\n";
 
-                            //SEND ACK
-                            MessageBuilder builder(words.at(3));     // Create a message builder for this topic
-                            builder.partition(partition_value);   	  // Get the partition we want to write to.
+				            //SEND ACK
+				            MessageBuilder builder(words.at(3));     // Create a message builder for this topic
+				            builder.partition(partition_value);   	  // Get the partition we want to write to.
 
-                            producerPayload=words.at(3)+"#"+"RC Commands(r/p/y/thr)= [Roll: "+ strRcRoll +", Pitch: "+ strRcPitch + ", Yaw: "+ strRcYaw+", Throttle: "+ strRcThrottle+"]"+"#"+consumer_topic_name+"#"+std::to_string(responseMsgCount);// Set the payload on this builder
-                            builder.payload(producerPayload);
-                            responseMsgCount++;
+				            producerPayload=words.at(3)+"#"+"RC Commands(r/p/y/thr)= [Roll: "+ strRcRoll +", Pitch: "+ strRcPitch + ", Yaw: "+ strRcYaw+", Throttle: "+ strRcThrottle+"]"+"#"+consumer_topic_name+"#"+std::to_string(responseMsgCount);// Set the payload on this builder
+				            builder.payload(producerPayload);
+				            responseMsgCount++;
 
-                            // Actually produce ACK in topic
-                            producer.produce(builder);
-                        }
+				            // Actually produce ACK in topic
+				            producer.produce(builder);
+				        }
 
-                        //Attitude Quaternion
-                        else if(wordsCommand.at(2).compare("quaternion")==0)
-                        {
-                            quaternion = vehicle->broadcast->getQuaternion();
+				        //Attitude Quaternion
+				        else if(wordsCommand.at(2).compare("quaternion")==0)
+				        {
+				            quaternion = vehicle->broadcast->getQuaternion();
 
-                            string strQuaternion_0=std::to_string(quaternion.q0);
-                            string strQuaternion_1=std::to_string(quaternion.q1);
-                            string strQuaternion_2=std::to_string(quaternion.q2);
-                            string strQuaternion_3=std::to_string(quaternion.q3);
+				            string strQuaternion_0=std::to_string(quaternion.q0);
+				            string strQuaternion_1=std::to_string(quaternion.q1);
+				            string strQuaternion_2=std::to_string(quaternion.q2);
+				            string strQuaternion_3=std::to_string(quaternion.q3);
 
-                            cout << "Attitude Quaternion   (w,x,y,z)       = " << strQuaternion_0
-                                  << ", " << strQuaternion_1 << ", " << strQuaternion_2 << ", "
-                                  << strQuaternion_3 << "\n";
+				            cout << "Attitude Quaternion   (w,x,y,z)       = " << strQuaternion_0
+				                  << ", " << strQuaternion_1 << ", " << strQuaternion_2 << ", "
+				                  << strQuaternion_3 << "\n";
 
-                            //SEND ACK
-                            MessageBuilder builder(words.at(3));     // Create a message builder for this topic
-                            builder.partition(partition_value);   	  // Get the partition we want to write to.
+				            //SEND ACK
+				            MessageBuilder builder(words.at(3));     // Create a message builder for this topic
+				            builder.partition(partition_value);   	  // Get the partition we want to write to.
 
-                            producerPayload=words.at(3)+"#"+"Attitude Quaternion (w,x,y,z)= [w: "+ strQuaternion_0 +", x: "+ strQuaternion_1 + ", y: "+ strQuaternion_2+", z: "+ strQuaternion_3+"]"+"#"+consumer_topic_name+"#"+std::to_string(responseMsgCount);// Set the payload on this builder
-                            builder.payload(producerPayload);
-                            responseMsgCount++;
+				            producerPayload=words.at(3)+"#"+"Attitude Quaternion (w,x,y,z)= [w: "+ strQuaternion_0 +", x: "+ strQuaternion_1 + ", y: "+ strQuaternion_2+", z: "+ strQuaternion_3+"]"+"#"+consumer_topic_name+"#"+std::to_string(responseMsgCount);// Set the payload on this builder
+				            builder.payload(producerPayload);
+				            responseMsgCount++;
 
-                           // Actually produce ACK in topic
-                            producer.produce(builder);
-                        }
+				           // Actually produce ACK in topic
+				            producer.produce(builder);
+				        }
 
-                        //Battery Percentage
-                        else if(wordsCommand.at(2).compare("battery")==0)
-                        {
-                            battery = vehicle->broadcast->getBatteryInfo();
+				        //Battery Percentage
+				        else if(wordsCommand.at(2).compare("battery")==0)
+				        {
+				            battery = vehicle->broadcast->getBatteryInfo();
 
-                            string strBatteryPercent=std::to_string(battery.percentage);
-
-
-                            cout << "Battery Percentage     = " << strBatteryPercent<< "\n";
-
-                            //SEND ACK
-                            MessageBuilder builder(words.at(3));     // Create a message builder for this topic
-                            builder.partition(partition_value);   	  // Get the partition we want to write to.
-
-                            producerPayload=words.at(3)+"#"+"Battery Percentage = " + strBatteryPercent +"#"+consumer_topic_name+"#"+std::to_string(responseMsgCount);// Set the payload on this builder
-                            builder.payload(producerPayload);
-                            responseMsgCount++;
-
-                            // Actually produce ACK in topic
-                            producer.produce(builder);
-                        }
-
-                        else
-                        {
-                            cout << "Unkown Status Command";
-
-                            //SEND ACK
-                            MessageBuilder builder(words.at(3));     // Create a message builder for this topic
-                            builder.partition(partition_value);   	  // Get the partition we want to write to.
-
-                            producerPayload=words.at(3)+"#"+ "Unkown Drone Status  Command" +"#"+consumer_topic_name+"#"+std::to_string(responseMsgCount);// Set the payload on this builder
-                            builder.payload(producerPayload);
-                            responseMsgCount++;
-
-                            // Actually produce ACK in topic
-                            producer.produce(builder);
-                        }
-                    }
-                    else //General Status Print
-                    {
-                        cout << "Drone Status Command" << endl;
-
-                        //Get All the flight stats
-                        status         = vehicle->broadcast->getStatus();
-                        globalPosition = vehicle->broadcast->getGlobalPosition();
-                        rc             = vehicle->broadcast->getRC();
-                        velocity       = vehicle->broadcast->getVelocity();
-                        quaternion     = vehicle->broadcast->getQuaternion();
-
-                        globalPosition.latitude=globalPosition.latitude*(180/M_PI);
-                        globalPosition.longitude=globalPosition.longitude*(180/M_PI);
-
-                        cout << "-------\n";
-                        cout << "Flight Status                         = "
-                                  << (unsigned)status.flight << "\n";
-                        cout << "Position   Radian     (LLA)           = "
-                                  << globalPosition.latitude << ", " << globalPosition.longitude
-                                  << ", " << globalPosition.altitude << "\n";
-                        cout << "RC Commands           (r/p/y/thr)     = " << rc.roll << ", "
-                                  << rc.pitch << ", " << rc.yaw << ", " << rc.throttle << "\n";
-                        cout << "Velocity              (vx,vy,vz)      = " << velocity.x
-                                  << ", " << velocity.y << ", " << velocity.z << "\n";
-                        cout << "Attitude Quaternion   (w,x,y,z)       = " << quaternion.q0
-                                  << ", " << quaternion.q1 << ", " << quaternion.q2 << ", "
-                                  << quaternion.q3 << "\n";
-                        cout << "-------\n\n";
+				            string strBatteryPercent=std::to_string(battery.percentage);
 
 
-                        //SEND ACK
-                        MessageBuilder builder(words.at(3));     // Create a message builder for this topic
-                        builder.partition(partition_value);   	  // Get the partition we want to write to.
+				            cout << "Battery Percentage     = " << strBatteryPercent<< "\n";
 
-                        producerPayload=words.at(3)+"#"+"Status Command ACK from "+consumer_topic_name+"#"+consumer_topic_name+"#"+std::to_string(responseMsgCount);// Set the payload on this builder
-                        builder.payload(producerPayload);
-                        responseMsgCount++;
+				            //SEND ACK
+				            MessageBuilder builder(words.at(3));     // Create a message builder for this topic
+				            builder.partition(partition_value);   	  // Get the partition we want to write to.
 
-                        // Actually produce ACK in topic
-                        producer.produce(builder);
+				            producerPayload=words.at(3)+"#"+"Battery Percentage = " + strBatteryPercent +"#"+consumer_topic_name+"#"+std::to_string(responseMsgCount);// Set the payload on this builder
+				            builder.payload(producerPayload);
+				            responseMsgCount++;
+
+				            // Actually produce ACK in topic
+				            producer.produce(builder);
+				        }
+
+				        else
+				        {
+				            cout << "Unkown Status Command";
+
+				            //SEND ACK
+				            MessageBuilder builder(words.at(3));     // Create a message builder for this topic
+				            builder.partition(partition_value);   	  // Get the partition we want to write to.
+
+				            producerPayload=words.at(3)+"#"+ "Unkown Drone Status  Command" +"#"+consumer_topic_name+"#"+std::to_string(responseMsgCount);// Set the payload on this builder
+				            builder.payload(producerPayload);
+				            responseMsgCount++;
+
+				            // Actually produce ACK in topic
+				            producer.produce(builder);
+				        }
+				    }
+				    else //General Status Print
+				    {
+				        cout << "Drone Status Command" << endl;
+
+				        //Get All the flight stats
+				        status         = vehicle->broadcast->getStatus();
+				        globalPosition = vehicle->broadcast->getGlobalPosition();
+				        rc             = vehicle->broadcast->getRC();
+				        velocity       = vehicle->broadcast->getVelocity();
+				        quaternion     = vehicle->broadcast->getQuaternion();
+
+				        globalPosition.latitude=globalPosition.latitude*(180/M_PI);
+				        globalPosition.longitude=globalPosition.longitude*(180/M_PI);
+
+				        cout << "-------\n";
+				        cout << "Flight Status                         = "
+				                  << (unsigned)status.flight << "\n";
+				        cout << "Position   Radian     (LLA)           = "
+				                  << globalPosition.latitude << ", " << globalPosition.longitude
+				                  << ", " << globalPosition.altitude << "\n";
+				        cout << "RC Commands           (r/p/y/thr)     = " << rc.roll << ", "
+				                  << rc.pitch << ", " << rc.yaw << ", " << rc.throttle << "\n";
+				        cout << "Velocity              (vx,vy,vz)      = " << velocity.x
+				                  << ", " << velocity.y << ", " << velocity.z << "\n";
+				        cout << "Attitude Quaternion   (w,x,y,z)       = " << quaternion.q0
+				                  << ", " << quaternion.q1 << ", " << quaternion.q2 << ", "
+				                  << quaternion.q3 << "\n";
+				        cout << "-------\n\n";
+
+
+				        //SEND ACK
+				        MessageBuilder builder(words.at(3));     // Create a message builder for this topic
+				        builder.partition(partition_value);   	  // Get the partition we want to write to.
+
+				        producerPayload=words.at(3)+"#"+"Status Command ACK from "+consumer_topic_name+"#"+consumer_topic_name+"#"+std::to_string(responseMsgCount);// Set the payload on this builder
+				        builder.payload(producerPayload);
+				        responseMsgCount++;
+
+				        // Actually produce ACK in topic
+				        producer.produce(builder);
 					}
 				}
 				else
 				{
-                    cout << "Unkown OSDK Command" << endl;
+		    			cout << "Unkown OSDK Command" << endl;
 
 					MessageBuilder builder(words.at(3));     // Create a message builder for this topic
 					builder.partition(partition_value);   	  // Get the partition we want to write to.
@@ -472,7 +515,7 @@ int main(int argc, char* argv[]) {
 				}
 			}
 
-		cout << "====================================================" << endl;
+		cout << "======****======****======****======****======****======****" << endl;
 
 
                 // Now commit the message
