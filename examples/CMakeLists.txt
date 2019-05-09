@@ -1,3 +1,6 @@
+#Author- Vidur Kakar
+#CAS Lab, Virginia Tech
+
 cmake_minimum_required(VERSION 2.8)
 project(cpp-kafka-osdk)
 
