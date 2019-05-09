@@ -91,4 +91,4 @@ http://localhost:8060/service2?request=deviceNodeReq2%23EdgeNode1%23OSDK%3Atakeo
 ```
 
 -------------------
- CAS Lab, Virginia Tech
+ [CAS Lab, Virginia Tech](https://caslab.ece.vt.edu/)
