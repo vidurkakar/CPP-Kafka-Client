@@ -66,7 +66,7 @@ $ ./try-consumer --brokers 192.168.1.250:9092 --topic deviceNodeReq2 --group-id 
 
 Example GET Commands can be found on my Post profile [here](https://documenter.getpostman.com/view/7078648/S1LwynQh)
 
-A get command has the following format -
+A GET command has the following format -
 
 ```
 http://yourBrokerIP:currentNodePort/serviceNumber?request=DestinationNode#SourceNode#MessagePayload#ResponseNode
