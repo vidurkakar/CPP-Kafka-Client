@@ -2,6 +2,10 @@
 
 This repository contains the CPP libraries to run the Kafka client. This is based on [cppkakfa](https://github.com/mfontanini/cppkafka) library.
 
+### Testing Video - 
+[![Heterogeneous Multi-Robot Communication Using Kafka](https://img.youtube.com/vi/SEzEylQgFsk/sddefault.jpg)](https://youtu.be/SEzEylQgFsk "Heterogeneous Multi-Robot Communication Using Kafka")
+
+
 # Installation Instructions - 
 
 ### Device Node
