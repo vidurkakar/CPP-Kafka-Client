@@ -1,4 +1,4 @@
-#Heterogeneous Multi-Robot Communication using Kafka
+# Heterogeneous Multi-Robot Communication using Kafka
 
 This repository contains the CPP libraries to run the Kafka client. This is based on [cppkakfa](https://github.com/mfontanini/cppkafka) library.
 
