@@ -68,7 +68,7 @@ $ ./try-consumer --brokers 192.168.1.250:9092 --topic deviceNodeReq2 --group-id 
 ```
 
 
-Example GET Commands can be found on my Post profile [here](https://documenter.getpostman.com/view/7078648/S1LwynQh)
+Example GET Commands can be found on my Postman profile [here](https://documenter.getpostman.com/view/7078648/S1LwynQh)
 
 A GET command has the following format -
 
